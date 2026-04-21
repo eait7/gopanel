@@ -16,6 +16,9 @@ func main() {
 	cfg := config.Load()
 	auth := middleware.NewAuth(cfg.Secret)
 
+	// Initialize settings
+	config.InitSettings()
+
 	// Initialize services
 	caddySvc := services.NewCaddyService(cfg.CaddyAPI)
 	sysInfoSvc := services.NewSysInfoService()
@@ -48,6 +51,19 @@ func main() {
 	// System
 	protectedMux.HandleFunc("/api/system/stats", systemHandler.Stats)
 	protectedMux.HandleFunc("/api/links", systemHandler.Links)
+
+	// Settings
+	protectedMux.HandleFunc("/api/settings/email", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handlers.GetEmailSettings(w, r)
+		case http.MethodPut:
+			handlers.UpdateEmailSettings(w, r)
+		default:
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+	})
+	protectedMux.HandleFunc("/api/settings/email/test", handlers.TestEmailSettings)
 
 	// Domains
 	protectedMux.HandleFunc("/api/domains", func(w http.ResponseWriter, r *http.Request) {

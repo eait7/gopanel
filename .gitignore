@@ -11,6 +11,9 @@ caddy_data/
 # Portainer persistent data
 portainer_data/
 
+# Dashboard persistent data
+dashboard_data/
+
 # User uploaded storage
 storage/
 

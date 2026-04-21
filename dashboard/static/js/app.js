@@ -43,10 +43,9 @@ const GoPanel = {
             mobileBtn.addEventListener('click', () => this.toggleSidebar());
         }
 
-        // Hash-based routing
         window.addEventListener('hashchange', () => {
             const hash = location.hash.slice(1) || 'dashboard';
-            if (['dashboard', 'domains', 'containers', 'system'].includes(hash)) {
+            if (['dashboard', 'domains', 'containers', 'system', 'settings'].includes(hash)) {
                 this.navigate(hash, false);
             }
         });
@@ -289,6 +288,10 @@ const GoPanel = {
         const units = ['B', 'KB', 'MB', 'GB', 'TB'];
         const i = Math.floor(Math.log(bytes) / Math.log(1024));
         return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i];
+    },
+
+    async api(url, options = {}) {
+        return this.apiRequest(url, options);
     },
 
     async apiRequest(url, options = {}) {

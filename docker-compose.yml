@@ -60,6 +60,7 @@ services:
       - GOPANEL_PASSWORD=${GOPANEL_PASSWORD:-admin}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./dashboard_data:/data
     depends_on:
       - caddy
       - portainer

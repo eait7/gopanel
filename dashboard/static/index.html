@@ -118,6 +118,13 @@
                 </svg>
                 <span>System</span>
             </a>
+            <a href="#settings" class="nav-item" data-section="settings" id="nav-settings">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                <span>Settings</span>
+            </a>
 
             <div class="nav-divider"></div>
             <p class="nav-section-title">External Tools</p>
@@ -404,6 +411,70 @@
             </div>
         </section>
 
+        <!-- ── Settings Section ── -->
+        <section id="section-settings" class="section">
+            <div class="section-header">
+                <h2>GoPanel Settings</h2>
+                <p class="section-subtitle">Configure native system workflows and integrations</p>
+            </div>
+            
+            <div class="settings-grid">
+                <div class="settings-card info-card">
+                    <h3>Email Relay Configuration</h3>
+                    <p class="form-hint" style="margin-bottom: 20px;">Relay automated system emails securely using one of the pre-configured SMTP providers below.</p>
+                    
+                    <form id="email-settings-form">
+                        <div class="form-group">
+                            <label for="smtp-provider">Service Provider</label>
+                            <select id="smtp-provider">
+                                <option value="custom">Custom SMTP</option>
+                                <!-- JS will populate the rest -->
+                            </select>
+                        </div>
+                        
+                        <div class="form-row" style="display:flex; gap:16px;">
+                            <div class="form-group" style="flex:2;">
+                                <label for="smtp-host">SMTP Host</label>
+                                <input type="text" id="smtp-host" placeholder="smtp.example.com" required>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label for="smtp-port">Port</label>
+                                <input type="text" id="smtp-port" placeholder="587" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 5px;">
+                            <label style="display:flex; align-items:center; cursor:pointer;">
+                                <input type="checkbox" id="smtp-secure" style="width: auto; margin-right: 8px;">
+                                Use SSL/TLS (Port 465 usually) vs STARTTLS
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="smtp-from">Default "From" Address</label>
+                            <input type="email" id="smtp-from" placeholder="noreply@yourdomain.com">
+                        </div>
+
+                        <div class="form-row" style="display:flex; gap:16px;">
+                            <div class="form-group" style="flex:1;">
+                                <label for="smtp-username">Username / API Key Name</label>
+                                <input type="text" id="smtp-username" placeholder="Username">
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label for="smtp-password">Password / API Key</label>
+                                <input type="password" id="smtp-password" placeholder="********">
+                            </div>
+                        </div>
+                        
+                        <div style="display:flex; gap: 12px; margin-top: 10px;">
+                            <button type="submit" class="btn btn-primary" id="save-email-settings">Save Settings</button>
+                            <button type="button" class="btn btn-outline" id="test-email-btn">Send Test Email</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
     </main>
 </div>
 
@@ -480,5 +551,7 @@
 <script src="/js/domains.js"></script>
 <script src="/js/containers.js"></script>
 <script src="/js/system.js"></script>
+<script src="/js/providers.js"></script>
+<script src="/js/settings.js"></script>
 </body>
 </html>
