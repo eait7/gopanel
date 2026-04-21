@@ -1,0 +1,125 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"strings"
+
+	"gopanel/internal/config"
+	"gopanel/internal/handlers"
+	"gopanel/internal/middleware"
+	"gopanel/internal/services"
+)
+
+func main() {
+	cfg := config.Load()
+	auth := middleware.NewAuth(cfg.Secret)
+
+	// Initialize services
+	caddySvc := services.NewCaddyService(cfg.CaddyAPI)
+	sysInfoSvc := services.NewSysInfoService()
+	dockerSvc, err := services.NewDockerService()
+	if err != nil {
+		log.Printf("WARNING: Docker service unavailable: %v", err)
+	}
+
+	// Initialize handlers
+	authHandler := handlers.NewAuthHandler(cfg, auth)
+	domainsHandler := handlers.NewDomainsHandler(caddySvc)
+	systemHandler := handlers.NewSystemHandler(sysInfoSvc, cfg)
+	dashboardHandler := handlers.NewDashboardHandler("/static")
+
+	var containersHandler *handlers.ContainersHandler
+	if dockerSvc != nil {
+		containersHandler = handlers.NewContainersHandler(dockerSvc)
+	}
+
+	mux := http.NewServeMux()
+
+	// ── Auth endpoints (no auth required) ──
+	mux.HandleFunc("/api/auth/login", authHandler.Login)
+	mux.HandleFunc("/api/auth/session", authHandler.Session)
+	mux.HandleFunc("/api/auth/logout", authHandler.Logout)
+
+	// ── Protected API endpoints ──
+	protectedMux := http.NewServeMux()
+
+	// System
+	protectedMux.HandleFunc("/api/system/stats", systemHandler.Stats)
+	protectedMux.HandleFunc("/api/links", systemHandler.Links)
+
+	// Domains
+	protectedMux.HandleFunc("/api/domains", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			domainsHandler.List(w, r)
+		case http.MethodPost:
+			domainsHandler.Add(w, r)
+		default:
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+	})
+
+	protectedMux.HandleFunc("/api/domains/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodDelete:
+			domainsHandler.Delete(w, r)
+		case http.MethodPut:
+			domainsHandler.Update(w, r)
+		default:
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Caddy config
+	protectedMux.HandleFunc("/api/caddy/config", domainsHandler.CaddyConfig)
+
+	// Containers
+	if containersHandler != nil {
+		protectedMux.HandleFunc("/api/containers", containersHandler.List)
+		protectedMux.HandleFunc("/api/containers/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			path := r.URL.Path
+			switch {
+			case strings.HasSuffix(path, "/start") && r.Method == http.MethodPost:
+				containersHandler.Start(w, r)
+			case strings.HasSuffix(path, "/stop") && r.Method == http.MethodPost:
+				containersHandler.Stop(w, r)
+			case strings.HasSuffix(path, "/restart") && r.Method == http.MethodPost:
+				containersHandler.Restart(w, r)
+			case strings.HasSuffix(path, "/logs") && r.Method == http.MethodGet:
+				containersHandler.Logs(w, r)
+			default:
+				http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
+			}
+		})
+	}
+
+	// Mount protected routes with auth middleware
+	mux.Handle("/api/", auth.RequireAuth(protectedMux))
+
+	// ── Static files (SPA) ──
+	mux.Handle("/", dashboardHandler)
+
+	// CORS + logging wrapper
+	handler := loggingMiddleware(mux)
+
+	addr := fmt.Sprintf(":%s", cfg.Port)
+	log.Printf("🚀 GoPanel Dashboard starting on %s", addr)
+	log.Printf("   Caddy API: %s", cfg.CaddyAPI)
+	log.Printf("   FileBrowser: %s", cfg.FileBrowserURL)
+	log.Printf("   Portainer: %s", cfg.PortainerExternalURL)
+	log.Fatal(http.ListenAndServe(addr, handler))
+}
+
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			log.Printf("%s %s", r.Method, r.URL.Path)
+		}
+		next.ServeHTTP(w, r)
+	})
+}

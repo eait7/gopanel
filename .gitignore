@@ -1,0 +1,22 @@
+# Environment variables
+.env
+
+# Go build files
+dashboard/dashboard
+dashboard/gopanel
+
+# Caddy persistent data
+caddy_data/
+
+# Portainer persistent data
+portainer_data/
+
+# User uploaded storage
+storage/
+
+# FileBrowser persistent database
+filebrowser/database/
+
+# Ignore OS files
+.DS_Store
+Thumbs.db

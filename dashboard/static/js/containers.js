@@ -1,0 +1,162 @@
+/* ═══════════════════════════════════════════════════════════════
+   GoPanel — Container Management Module
+   ═══════════════════════════════════════════════════════════════ */
+
+const ContainersModule = {
+    containers: [],
+
+    init() {
+        document.getElementById('refresh-containers-btn').addEventListener('click', () => {
+            this.loadContainers();
+            GoPanel.toast('Containers refreshed', 'info');
+        });
+
+        document.getElementById('logs-modal-close').addEventListener('click', () => {
+            document.getElementById('logs-modal').style.display = 'none';
+        });
+    },
+
+    async loadContainers() {
+        try {
+            const data = await GoPanel.apiRequest('/api/containers');
+            if (!data) return;
+
+            this.containers = data.containers || [];
+            this.renderContainers();
+            this.updateDashboardStat();
+        } catch (err) {
+            console.error('Failed to load containers:', err);
+            document.getElementById('containers-empty').innerHTML = `
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1" opacity="0.5">
+                    <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                <h3>Cannot connect to Docker</h3>
+                <p>${GoPanel.escapeHtml(err.message)}</p>
+            `;
+        }
+    },
+
+    renderContainers() {
+        const grid = document.getElementById('containers-grid');
+        const empty = document.getElementById('containers-empty');
+
+        if (!this.containers.length) {
+            grid.innerHTML = '';
+            grid.appendChild(empty);
+            empty.innerHTML = `
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                </svg>
+                <h3>No containers found</h3>
+                <p>Docker is connected but no containers exist yet.</p>
+            `;
+            return;
+        }
+
+        grid.innerHTML = this.containers.map(c => {
+            const isRunning = c.state === 'running';
+            const ports = (c.ports || [])
+                .filter(p => p.public > 0)
+                .map(p => `<span class="badge badge-gray">${p.public}→${p.private}/${p.type}</span>`)
+                .join('');
+
+            return `
+                <div class="container-card">
+                    <div class="container-card-header">
+                        <div class="container-name">
+                            <span class="container-status ${c.state}"></span>
+                            ${GoPanel.escapeHtml(c.name)}
+                        </div>
+                        <span class="badge ${isRunning ? 'badge-green' : 'badge-gray'}">${c.state}</span>
+                    </div>
+                    <div class="container-image" title="${GoPanel.escapeHtml(c.image)}">
+                        ${GoPanel.escapeHtml(c.image)}
+                    </div>
+                    <div class="container-meta">
+                        <span class="badge badge-blue">${GoPanel.escapeHtml(c.id)}</span>
+                        ${ports}
+                    </div>
+                    <div class="container-card-actions">
+                        ${isRunning ? `
+                            <button class="btn btn-outline btn-sm" onclick="ContainersModule.stopContainer('${c.id}', '${GoPanel.escapeHtml(c.name)}')">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                                Stop
+                            </button>
+                            <button class="btn btn-outline btn-sm" onclick="ContainersModule.restartContainer('${c.id}', '${GoPanel.escapeHtml(c.name)}')">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                                Restart
+                            </button>
+                        ` : `
+                            <button class="btn btn-primary btn-sm" onclick="ContainersModule.startContainer('${c.id}', '${GoPanel.escapeHtml(c.name)}')">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                Start
+                            </button>
+                        `}
+                        <button class="btn btn-ghost btn-sm" onclick="ContainersModule.viewLogs('${c.id}', '${GoPanel.escapeHtml(c.name)}')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            Logs
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    },
+
+    updateDashboardStat() {
+        const running = this.containers.filter(c => c.state === 'running').length;
+        const total = this.containers.length;
+        const el = document.getElementById('stat-containers');
+        if (el) el.textContent = `${running}/${total}`;
+    },
+
+    async startContainer(id, name) {
+        try {
+            await GoPanel.apiRequest(`/api/containers/${id}/start`, { method: 'POST' });
+            GoPanel.toast(`${name} started successfully`, 'success');
+            await this.loadContainers();
+        } catch (err) {
+            GoPanel.toast(`Failed to start ${name}: ${err.message}`, 'error');
+        }
+    },
+
+    async stopContainer(id, name) {
+        const confirmed = await GoPanel.confirm('Stop Container', `Are you sure you want to stop "${name}"?`);
+        if (!confirmed) return;
+
+        try {
+            await GoPanel.apiRequest(`/api/containers/${id}/stop`, { method: 'POST' });
+            GoPanel.toast(`${name} stopped`, 'success');
+            await this.loadContainers();
+        } catch (err) {
+            GoPanel.toast(`Failed to stop ${name}: ${err.message}`, 'error');
+        }
+    },
+
+    async restartContainer(id, name) {
+        try {
+            await GoPanel.apiRequest(`/api/containers/${id}/restart`, { method: 'POST' });
+            GoPanel.toast(`${name} restarted`, 'success');
+            await this.loadContainers();
+        } catch (err) {
+            GoPanel.toast(`Failed to restart ${name}: ${err.message}`, 'error');
+        }
+    },
+
+    async viewLogs(id, name) {
+        document.getElementById('logs-modal-title').textContent = `Logs — ${name}`;
+        document.getElementById('log-content').textContent = 'Loading logs...';
+        document.getElementById('logs-modal').style.display = 'flex';
+
+        try {
+            const data = await GoPanel.apiRequest(`/api/containers/${id}/logs?lines=200`);
+            document.getElementById('log-content').textContent = data.logs || 'No logs available.';
+            // Auto-scroll to bottom
+            const viewer = document.getElementById('log-viewer');
+            viewer.scrollTop = viewer.scrollHeight;
+        } catch (err) {
+            document.getElementById('log-content').textContent = `Error: ${err.message}`;
+        }
+    },
+};
+
+document.addEventListener('DOMContentLoaded', () => ContainersModule.init());
