@@ -350,8 +350,9 @@ func (h *DomainsHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	// 5. Hard reboot natively releasing internal SQLLite locks dynamically!
 	h.docker.RestartContainer(targetContainerID)
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+	lsOut, _ := exec.Command("docker", "exec", targetContainerID, "ls", "-la", "/app/data").CombinedOutput()
+
+	http.Error(w, `{"error":"DIAGNOSTIC LS: `+strings.ReplaceAll(string(lsOut), "\n", " ")+`"}`, http.StatusInternalServerError)
 }
 
 // Restart handles POST /api/domains/{id}/restart identically mapping domains dynamically onto internal Docker daemon references to safely reboot!
