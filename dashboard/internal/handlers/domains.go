@@ -434,3 +434,106 @@ func (h *DomainsHandler) Restart(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "message": "Domain Application Bounced Successfully"})
 }
 
+// Backup handles GET /api/domains/{id}/backup cleanly organically securely structurally dynamically zipping running backends dynamically.
+func (h *DomainsHandler) Backup(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 5 {
+		http.Error(w, `{"error":"invalid path mapping"}`, http.StatusBadRequest)
+		return
+	}
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		http.Error(w, `{"error":"invalid domain ID mapping"}`, http.StatusBadRequest)
+		return
+	}
+
+	domains, err := h.caddy.ListDomains()
+	if err != nil || id < 0 || id >= len(domains) {
+		http.Error(w, `{"error":"domain not found payload"}`, http.StatusNotFound)
+		return
+	}
+
+	domain := domains[id]
+	if domain.Type != "reverse_proxy" || domain.Upstream == "" {
+		http.Error(w, `{"error":"domain must strictly map into a proxy"}`, http.StatusBadRequest)
+		return
+	}
+
+	upstreamParts := strings.Split(domain.Upstream, ":")
+	if len(upstreamParts) != 2 {
+		http.Error(w, `{"error":"malformed upstream"}`, http.StatusBadRequest)
+		return
+	}
+	
+	targetPortInt, _ := strconv.Atoi(upstreamParts[1])
+	targetPort := uint16(targetPortInt)
+
+	if h.docker == nil {
+		http.Error(w, `{"error":"docker orchestration offline"}`, http.StatusInternalServerError)
+		return
+	}
+
+	containers, err := h.docker.ListContainers()
+	if err != nil {
+		http.Error(w, `{"error":"cannot resolve backend instances"}`, http.StatusInternalServerError)
+		return
+	}
+
+	var targetContainerID string
+	for _, c := range containers {
+		for _, p := range c.Ports {
+			if p.Public == targetPort {
+				targetContainerID = c.ID
+				break
+			}
+		}
+		if targetContainerID != "" {
+			break
+		}
+	}
+	if targetContainerID == "" {
+		http.Error(w, `{"error":"failed to logically resolve active container native mapping"}`, http.StatusNotFound)
+		return
+	}
+
+	// Dynamic Zip Compression Engine
+	tmpDir := filepath.Join("/tmp", fmt.Sprintf("backup_export_%d", id))
+	os.RemoveAll(tmpDir)
+	os.MkdirAll(tmpDir, 0755)
+	defer os.RemoveAll(tmpDir)
+
+	exec.Command("docker", "cp", targetContainerID+":/app/data", tmpDir+"/data").Run()
+	exec.Command("docker", "cp", targetContainerID+":/app/uploads", tmpDir+"/uploads").Run()
+	exec.Command("docker", "cp", targetContainerID+":/app/plugins", tmpDir+"/plugins").Run()
+	exec.Command("docker", "cp", targetContainerID+":/app/themes", tmpDir+"/themes").Run()
+	exec.Command("docker", "cp", targetContainerID+":/app/static", tmpDir+"/static").Run()
+
+	zipPath := tmpDir + "/backup.zip"
+	outFile, err := os.Create(zipPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to generate dynamic compression matrix identically: %v"}`, err), http.StatusInternalServerError)
+		return
+	}
+
+	zw := zip.NewWriter(outFile)
+	filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || path == zipPath {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		relPath, _ := filepath.Rel(tmpDir, path)
+		f, _ := zw.Create(relPath)
+		file, _ := os.Open(path)
+		io.Copy(f, file)
+		file.Close()
+		return nil
+	})
+	zw.Close()
+	outFile.Close()
+
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s-backup.zip", domain.Domains[0]))
+	w.Header().Set("Content-Type", "application/zip")
+	http.ServeFile(w, r, zipPath)
+}

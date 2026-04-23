@@ -90,6 +90,8 @@ func main() {
 			domainsHandler.Restore(w, r)
 		case strings.HasSuffix(path, "/restart") && r.Method == http.MethodPost:
 			domainsHandler.Restart(w, r)
+		case strings.HasSuffix(path, "/backup") && r.Method == http.MethodGet:
+			domainsHandler.Backup(w, r)
 		case r.Method == http.MethodDelete:
 			domainsHandler.Delete(w, r)
 		case r.Method == http.MethodPut:

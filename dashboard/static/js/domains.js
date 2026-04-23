@@ -56,6 +56,9 @@ const DomainsModule = {
                         <button class="btn-icon" style="color: var(--blue)" title="Restart Server" onclick="DomainsModule.triggerRestart(${i}, '${GoPanel.escapeHtml(d.domains ? d.domains[0] : '')}')">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         </button>
+                        <button class="btn-icon" style="color: var(--blue)" title="Download Backup" onclick="DomainsModule.triggerBackup(${i}, '${GoPanel.escapeHtml(d.domains ? d.domains[0] : '')}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        </button>
                         <button class="btn-icon" style="color: var(--blue)" title="Restore Backup" onclick="DomainsModule.triggerRestore(${i}, '${GoPanel.escapeHtml(d.domains ? d.domains[0] : '')}')">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         </button>
@@ -211,6 +214,11 @@ const DomainsModule = {
         this.pendingRestoreId = id;
         this.pendingRestoreName = name;
         document.getElementById('backup-upload-input').click();
+    },
+
+    triggerBackup(id, name) {
+        GoPanel.toast('Compressing mapping and dynamically extracting ' + name + '...', 'info');
+        window.open(`/api/domains/${id}/backup`, '_blank');
     },
 
     async uploadBackupZip(file, id, name) {
