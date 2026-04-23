@@ -294,7 +294,8 @@ func (h *DomainsHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 4. Dynamically locate target payload trees resolving varying zip structures intelligently
-	var dataPath, uploadsPath, dbPath string
+	var dataPath, uploadsPath string
+	var dbFiles []string
 	filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -305,8 +306,8 @@ func (h *DomainsHandler) Restore(w http.ResponseWriter, r *http.Request) {
 		if info.IsDir() && info.Name() == "uploads" && uploadsPath == "" {
 			uploadsPath = path
 		}
-		if !info.IsDir() && info.Name() == "sqlite.db" && dbPath == "" {
-			dbPath = path
+		if !info.IsDir() && strings.HasSuffix(info.Name(), ".db") {
+			dbFiles = append(dbFiles, path)
 		}
 		return nil
 	})
@@ -323,10 +324,9 @@ func (h *DomainsHandler) Restore(w http.ResponseWriter, r *http.Request) {
 			cpErrs = append(cpErrs, fmt.Sprintf("uploads obj err: %v - %s", err, string(out)))
 		}
 	}
-	if dbPath != "" {
-		if out, err := exec.Command("docker", "cp", dbPath, targetContainerID+":/app/data/sqlite.db").CombinedOutput(); err != nil {
-			// fallback mapping
-			cpErrs = append(cpErrs, fmt.Sprintf("db obj err: %v - %s", err, string(out)))
+	for _, dbFile := range dbFiles {
+		if out, err := exec.Command("docker", "cp", dbFile, targetContainerID+":/app/data/"+filepath.Base(dbFile)).CombinedOutput(); err != nil {
+			cpErrs = append(cpErrs, fmt.Sprintf("db %s err: %v - %s", filepath.Base(dbFile), err, string(out)))
 		}
 	}
 
