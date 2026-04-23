@@ -53,6 +53,9 @@ const DomainsModule = {
                 <td>
                     <div class="table-actions">
                         ${d.type === 'reverse_proxy' && d.upstream ? `
+                        <button class="btn-icon" style="color: var(--blue)" title="Restart Server" onclick="DomainsModule.triggerRestart(${i}, '${GoPanel.escapeHtml(d.domains ? d.domains[0] : '')}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        </button>
                         <button class="btn-icon" style="color: var(--blue)" title="Restore Backup" onclick="DomainsModule.triggerRestore(${i}, '${GoPanel.escapeHtml(d.domains ? d.domains[0] : '')}')">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         </button>
@@ -183,6 +186,24 @@ const DomainsModule = {
             await this.loadDomains();
         } catch (err) {
             GoPanel.toast(err.message, 'error');
+        }
+    },
+
+    async triggerRestart(id, name) {
+        if (!await GoPanel.confirm('Restart Process', `Bounce the underlying backend web service for ${name}?`)) return;
+        try {
+            GoPanel.toast(`Restarting daemon securely mapped onto ${name} proxy...`, 'info');
+            const resp = await fetch(`/api/domains/${id}/restart`, {
+                method: 'POST'
+            });
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                GoPanel.toast(`Server bounced natively exactly successfully for ${name}!`, 'success');
+            } else {
+                throw new Error(data.error || 'Domains daemon restart failed payload');
+            }
+        } catch (err) {
+            GoPanel.toast(`Failed mapping restart: ${err.message}`, 'error');
         }
     },
 

@@ -88,6 +88,8 @@ func main() {
 		switch {
 		case strings.HasSuffix(path, "/restore") && r.Method == http.MethodPost:
 			domainsHandler.Restore(w, r)
+		case strings.HasSuffix(path, "/restart") && r.Method == http.MethodPost:
+			domainsHandler.Restart(w, r)
 		case r.Method == http.MethodDelete:
 			domainsHandler.Delete(w, r)
 		case r.Method == http.MethodPut:

@@ -3,6 +3,7 @@ package handlers
 import (
 	"archive/zip"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -303,3 +304,77 @@ func (h *DomainsHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
 }
+
+// Restart handles POST /api/domains/{id}/restart identically mapping domains dynamically onto internal Docker daemon references to safely reboot!
+func (h *DomainsHandler) Restart(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 5 {
+		http.Error(w, `{"error":"invalid path mapping"}`, http.StatusBadRequest)
+		return
+	}
+	id, err := strconv.Atoi(parts[3])
+	if err != nil {
+		http.Error(w, `{"error":"invalid domain index"}`, http.StatusBadRequest)
+		return
+	}
+
+	domains, err := h.caddy.ListDomains()
+	if err != nil || id < 0 || id >= len(domains) {
+		http.Error(w, `{"error":"domain not found payload"}`, http.StatusNotFound)
+		return
+	}
+	
+	domain := domains[id]
+	if domain.Type != "reverse_proxy" || domain.Upstream == "" {
+		http.Error(w, `{"error":"domain must strictly map into a proxy"}`, http.StatusBadRequest)
+		return
+	}
+
+	upstreamParts := strings.Split(domain.Upstream, ":")
+	if len(upstreamParts) != 2 {
+		http.Error(w, `{"error":"malformed upstream"}`, http.StatusBadRequest)
+		return
+	}
+	
+	targetPortInt, _ := strconv.Atoi(upstreamParts[1])
+	targetPort := uint16(targetPortInt)
+
+	if h.docker == nil {
+		http.Error(w, `{"error":"docker orchestration offline"}`, http.StatusInternalServerError)
+		return
+	}
+
+	containers, err := h.docker.ListContainers()
+	if err != nil {
+		http.Error(w, `{"error":"cannot resolve backend instances"}`, http.StatusInternalServerError)
+		return
+	}
+
+	var targetContainerID string
+	for _, c := range containers {
+		for _, p := range c.Ports {
+			if p.Public == targetPort {
+				targetContainerID = c.ID
+				break
+			}
+		}
+		if targetContainerID != "" {
+			break
+		}
+	}
+
+	if targetContainerID == "" {
+		http.Error(w, `{"error":"failed to resolve organic site container over native port"}`, http.StatusNotFound)
+		return
+	}
+
+	err = h.docker.RestartContainer(targetContainerID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to reboot securely: %v"}`, err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "message": "Domain Application Bounced Successfully"})
+}
+
