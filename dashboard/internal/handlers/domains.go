@@ -293,10 +293,34 @@ func (h *DomainsHandler) Restore(w http.ResponseWriter, r *http.Request) {
 		rc.Close()
 	}
 
-	// 4. Overwrite running application memory actively utilizing Host daemon streams safely 
-	exec.Command("docker", "cp", filepath.Join(tmpDir, "data")+"/.", targetContainerID+":/app/data/").Run()
-	exec.Command("docker", "cp", filepath.Join(tmpDir, "uploads")+"/.", targetContainerID+":/app/uploads/").Run()
-	exec.Command("docker", "cp", filepath.Join(tmpDir, "sqlite.db"), targetContainerID+":/app/data/sqlite.db").Run()
+	// 4. Dynamically locate target payload trees resolving varying zip structures intelligently
+	var dataPath, uploadsPath, dbPath string
+	filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() && info.Name() == "data" && dataPath == "" {
+			dataPath = path
+		}
+		if info.IsDir() && info.Name() == "uploads" && uploadsPath == "" {
+			uploadsPath = path
+		}
+		if !info.IsDir() && info.Name() == "sqlite.db" && dbPath == "" {
+			dbPath = path
+		}
+		return nil
+	})
+
+	// 5. Overwrite running application memory actively utilizing Host daemon streams safely 
+	if dataPath != "" {
+		exec.Command("docker", "cp", dataPath+"/.", targetContainerID+":/app/data/").Run()
+	}
+	if uploadsPath != "" {
+		exec.Command("docker", "cp", uploadsPath+"/.", targetContainerID+":/app/uploads/").Run()
+	}
+	if dbPath != "" {
+		exec.Command("docker", "cp", dbPath, targetContainerID+":/app/data/sqlite.db").Run()
+	}
 
 	// 5. Hard reboot natively releasing internal SQLLite locks dynamically!
 	h.docker.RestartContainer(targetContainerID)
