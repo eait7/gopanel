@@ -1,5 +1,5 @@
 # ── Stage 1: Build the Go binary ──
-FROM golang:1.22-alpine AS builder
+FROM golang:alpine AS builder
 WORKDIR /app
 
 # Cache dependencies
@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o gopanel .
 
 # ── Stage 2: Minimal runtime ──
 FROM alpine:3.19
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates docker-cli docker-cli-compose git
 
 COPY --from=builder /app/gopanel /usr/local/bin/gopanel
 COPY --from=builder /app/static /static

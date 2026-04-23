@@ -19,9 +19,16 @@ type EmailSettings struct {
 	Secure   bool   `json:"secure"` // whether to use SSL directly (465) or STARTTLS (587)
 }
 
+// AuthSettings manages persistent UI credentials securely
+type AuthSettings struct {
+	Username string `json:"username"`
+	Password string `json:"password_hash"` // Hashed via bcrypt
+}
+
 // AppSettings represents the persistent JSON settings
 type AppSettings struct {
 	Email EmailSettings `json:"email"`
+	Auth  AuthSettings  `json:"auth"`
 }
 
 var (
@@ -66,6 +73,22 @@ func SaveEmailSettings(es EmailSettings) error {
 	defer settingsMu.Unlock()
 
 	current.Email = es
+	return saveLocked(current)
+}
+
+// GetAuthSettings returns a copy of the current auth config
+func GetAuthSettings() AuthSettings {
+	settingsMu.RLock()
+	defer settingsMu.RUnlock()
+	return current.Auth
+}
+
+// SaveAuthSettings updates and persists the auth configuration
+func SaveAuthSettings(as AuthSettings) error {
+	settingsMu.Lock()
+	defer settingsMu.Unlock()
+
+	current.Auth = as
 	return saveLocked(current)
 }
 

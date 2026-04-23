@@ -125,6 +125,12 @@
                 </svg>
                 <span>Settings</span>
             </a>
+            <a href="#apps" class="nav-item" data-section="apps" id="nav-apps">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 10h16M4 14h16M5 6h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
+                </svg>
+                <span>App Store</span>
+            </a>
 
             <div class="nav-divider"></div>
             <p class="nav-section-title">External Tools</p>
@@ -472,8 +478,71 @@
                         </div>
                     </form>
                 </div>
+
+                <!-- Credentials Management -->
+                <div class="card" style="flex:1; min-width:300px;">
+                    <h3 class="card-title">GoPanel Credentials</h3>
+                    <p class="form-hint" style="margin-bottom: 20px;">Modify the explicit administrative login overriding the default system fallback.</p>
+                    <form id="auth-settings-form">
+                        <div class="form-group">
+                            <label for="auth-username">New Master Username</label>
+                            <input type="text" id="auth-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="auth-password">New Master Password (Hashed)</label>
+                            <input type="password" id="auth-password" required placeholder="Minimum 4 characters">
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="save-auth-btn">
+                            <span class="btn-text">Save UI Login</span>
+                        </button>
+                        <p id="auth-save-status" style="margin-top:0.5rem; font-size:0.875rem;"></p>
+                    </form>
+                </div>
+
+                <!-- 1-Click OS Update -->
+                <div class="card" style="flex:1; min-width:600px;">
+                    <h3 class="card-title">Self-Compiling System Updater</h3>
+                    <p class="form-hint" style="margin-bottom: 20px;">Sync GoPanel cleanly against the external GitHub origin utilizing the detached engine orchestrator.</p>
+                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                         <p style="font-size: 0.875rem; color: #fca5a5; margin:0;"><strong>Warning:</strong> Deploying an organic update commands the container daemon to structurally rebuild itself in memory! The dashboard socket will permanently sever instantly upon clicking until the native rebuild fully reinstantiates itself securely in ~30 seconds.</p>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="system-update-btn">
+                         <span class="btn-text">🚀 Check & Compel Updates natively</span>
+                         <span class="btn-loader" style="display:none"></span>
+                    </button>
+                    <p id="system-update-status" style="margin-top:0.5rem; font-size:0.875rem;"></p>
+                </div>
             </div>
         </section>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- APPS SECTION                                -->
+    <!-- ═══════════════════════════════════════════ -->
+    <section id="section-apps" class="section">
+        <header class="section-header">
+            <div>
+                <h2>App Store (1-Click Installs)</h2>
+                <p>Deploy persistent multi-tier web applications and stacks natively with a single click.</p>
+            </div>
+        </header>
+
+        <div class="card" style="max-width: 600px;">
+            <h3 class="card-title">BinaryCMS</h3>
+            <p style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 1.5rem; line-height: 1.5;">A hyper-optimized, native Go architecture combining high-performance API structures with a completely unified SQLite datastore perfectly suited for isolated container orchestration.</p>
+            
+            <form id="app-deploy-form" style="display: flex; gap: 1rem; align-items: flex-end;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Internal Target Port</label>
+                    <input type="number" id="app-deploy-port" placeholder="8081" required style="width: 150px;">
+                </div>
+                <button type="submit" id="app-deploy-btn" class="btn btn-primary" style="margin-bottom: 0px;">
+                    <span class="btn-text">🚀 1-Click Deploy</span>
+                    <span class="btn-loader" style="display:none"></span>
+                </button>
+            </form>
+            <p id="app-deploy-status" style="margin-top: 1rem; font-size: 0.875rem; font-weight: 500;"></p>
+        </div>
+    </section>
 
     </main>
 </div>

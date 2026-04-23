@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"os/exec"
 
 	"gopanel/internal/config"
 	"gopanel/internal/services"
@@ -32,5 +33,26 @@ func (h *SystemHandler) Links(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"filebrowser": h.cfg.FileBrowserURL,
 		"portainer":   h.cfg.PortainerExternalURL,
+	})
+}
+
+// UpdateSystem handles POST /api/system/update
+// Securely triggers a detached daemon sequence pulling upstream GitHub alignments and reconstructing the GoPanel orchestrator recursively.
+func (h *SystemHandler) UpdateSystem(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Dispatch organic detached background compilation sequence natively bypassing Go's lock.
+	cmd := exec.Command("sh", "-c", "cd /app/host_gopanel && git pull origin main && docker compose up -d --build --force-recreate dashboard &")
+	if err := cmd.Start(); err != nil {
+		http.Error(w, `{"error":"orchestrator sequence failed"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Update triggered successfully. Dashboard will detach and completely reset organically in ~30 seconds.",
 	})
 }

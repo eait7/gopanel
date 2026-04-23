@@ -45,7 +45,7 @@ const GoPanel = {
 
         window.addEventListener('hashchange', () => {
             const hash = location.hash.slice(1) || 'dashboard';
-            if (['dashboard', 'domains', 'containers', 'system', 'settings'].includes(hash)) {
+            if (['dashboard', 'domains', 'containers', 'system', 'settings', 'apps'].includes(hash)) {
                 this.navigate(hash, false);
             }
         });
@@ -70,6 +70,104 @@ const GoPanel = {
                 window.open(this.serviceLinks.portainer, '_blank');
             }
         });
+
+        // 1-Click App Deployment
+        const deployForm = document.getElementById('app-deploy-form');
+        if (deployForm) {
+            deployForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const port = document.getElementById('app-deploy-port').value;
+                const btn = document.getElementById('app-deploy-btn');
+                const status = document.getElementById('app-deploy-status');
+                
+                btn.disabled = true;
+                btn.querySelector('.btn-text').textContent = 'Deploying BinaryCMS (Please wait 60s)...';
+                btn.querySelector('.btn-loader').style.display = 'inline-block';
+                status.textContent = "Pulling repository and building image securely. Do not close this window...";
+                status.style.color = "#3b82f6";
+                
+                try {
+                    const res = await this.api('/api/apps/deploy/binarycms', {
+                        method: 'POST',
+                        body: JSON.stringify({ port })
+                    });
+                    status.textContent = "✅ " + res.message;
+                    status.style.color = "#10b981";
+                    
+                    setTimeout(() => {
+                         this.navigate('containers');
+                    }, 4000);
+                } catch (err) {
+                    status.textContent = "❌ " + err.message;
+                    status.style.color = "#ef4444";
+                } finally {
+                    btn.disabled = false;
+                    btn.querySelector('.btn-text').textContent = '🚀 1-Click Deploy';
+                    btn.querySelector('.btn-loader').style.display = 'none';
+                }
+            });
+        }
+        // UI Login Credentials Override
+        const authForm = document.getElementById('auth-settings-form');
+        if (authForm) {
+            authForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('auth-username').value;
+                const password = document.getElementById('auth-password').value;
+                const status = document.getElementById('auth-save-status');
+                
+                try {
+                    await this.api('/api/settings/auth', {
+                        method: 'POST',
+                        body: JSON.stringify({ username, password })
+                    });
+                    status.textContent = "✅ Credentials rewritten into encrypted memory securely!";
+                    status.style.color = "#10b981";
+                    setTimeout(() => status.textContent = '', 4000);
+                } catch(err) {
+                    status.textContent = "❌ " + err.message;
+                    status.style.color = "#ef4444";
+                }
+            });
+        }
+
+        // Master Background Self-Updater
+        const systemUpdateBtn = document.getElementById('system-update-btn');
+        if (systemUpdateBtn) {
+            systemUpdateBtn.addEventListener('click', async () => {
+                const status = document.getElementById('system-update-status');
+                const loader = systemUpdateBtn.querySelector('.btn-loader');
+                
+                if (!await this.confirm("Deploy Infrastructure Update", "Are you sure you want to run the root container orchestrator? The interface will safely detach while compiling.")) return;
+
+                systemUpdateBtn.disabled = true;
+                loader.style.display = 'inline-block';
+                status.textContent = "Pulling global changes & tearing down UI daemon securely...";
+                status.style.color = "#3b82f6";
+                
+                try {
+                    await this.api('/api/system/update', { method: 'POST' });
+                    status.textContent = "Rebuilding daemon stack... interface disconnected safely. Please wait.";
+                    
+                    // Polling loop waiting for the container daemon to structurally restart
+                    const pollInterval = setInterval(async () => {
+                        try {
+                            const ping = await fetch('/api/system/stats');
+                            if (ping.ok) {
+                                clearInterval(pollInterval);
+                                window.location.reload();
+                            }
+                        } catch(e) {}
+                    }, 5000);
+                    
+                } catch(err) {
+                    status.textContent = "❌ " + err.message;
+                    status.style.color = "#ef4444";
+                    systemUpdateBtn.disabled = false;
+                    loader.style.display = 'none';
+                }
+            });
+        }
     },
 
     // ── Auth ──

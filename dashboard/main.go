@@ -32,7 +32,7 @@ func main() {
 	domainsHandler := handlers.NewDomainsHandler(caddySvc)
 	systemHandler := handlers.NewSystemHandler(sysInfoSvc, cfg)
 	dashboardHandler := handlers.NewDashboardHandler("/static")
-
+	appsHandler := handlers.NewAppsHandler()
 	var containersHandler *handlers.ContainersHandler
 	if dockerSvc != nil {
 		containersHandler = handlers.NewContainersHandler(dockerSvc)
@@ -47,10 +47,14 @@ func main() {
 
 	// ── Protected API endpoints ──
 	protectedMux := http.NewServeMux()
+	
+	// Apps (1-Click Installer)
+	protectedMux.HandleFunc("/api/apps/deploy/binarycms", appsHandler.DeployBinaryCMS)
 
 	// System
 	protectedMux.HandleFunc("/api/system/stats", systemHandler.Stats)
 	protectedMux.HandleFunc("/api/links", systemHandler.Links)
+	protectedMux.HandleFunc("/api/system/update", systemHandler.UpdateSystem)
 
 	// Settings
 	protectedMux.HandleFunc("/api/settings/email", func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +68,7 @@ func main() {
 		}
 	})
 	protectedMux.HandleFunc("/api/settings/email/test", handlers.TestEmailSettings)
-
+	protectedMux.HandleFunc("/api/settings/auth", authHandler.UpdateCredentials)
 	// Domains
 	protectedMux.HandleFunc("/api/domains", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

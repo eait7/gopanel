@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"golang.org/x/crypto/bcrypt"
+	
 	"gopanel/internal/config"
 	"gopanel/internal/middleware"
 )
@@ -36,7 +38,22 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if creds.Username != h.cfg.Username || creds.Password != h.cfg.Password {
+	authConfig := config.GetAuthSettings()
+	validUser := authConfig.Username
+	if validUser == "" {
+		validUser = h.cfg.Username
+	}
+
+	valid := false
+	if authConfig.Password != "" {
+		err := bcrypt.CompareHashAndPassword([]byte(authConfig.Password), []byte(creds.Password))
+		valid = (err == nil && creds.Username == validUser)
+	} else {
+		// Fallback to .env setup globally intrinsically
+		valid = (creds.Username == validUser && creds.Password == h.cfg.Password)
+	}
+
+	if !valid {
 		http.Error(w, `{"error":"invalid credentials"}`, http.StatusUnauthorized)
 		return
 	}
@@ -90,4 +107,40 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 	})
+}
+
+// UpdateCredentials dynamically rewrites the core login structures natively
+func (h *AuthHandler) UpdateCredentials(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var creds struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(creds.Password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, `{"error":"encryption error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	authData := config.GetAuthSettings()
+	authData.Username = creds.Username
+	authData.Password = string(hash)
+
+	if err := config.SaveAuthSettings(authData); err != nil {
+		http.Error(w, `{"error":"save failure"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
 }
