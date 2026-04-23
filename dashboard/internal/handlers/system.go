@@ -45,7 +45,7 @@ func (h *SystemHandler) UpdateSystem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Dispatch organic detached background compilation sequence natively bypassing Go's lock.
-	cmd := exec.Command("sh", "-c", "cd /app/host_gopanel && git pull origin main && docker compose up -d --build --force-recreate dashboard &")
+	cmd := exec.Command("sh", "-c", "cd /app/host_gopanel && git config --global --add safe.directory /app/host_gopanel && git pull origin main && docker compose up -d --build --force-recreate dashboard &")
 	if err := cmd.Start(); err != nil {
 		http.Error(w, `{"error":"orchestrator sequence failed"}`, http.StatusInternalServerError)
 		return
