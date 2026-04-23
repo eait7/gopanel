@@ -502,11 +502,11 @@ func (h *DomainsHandler) Backup(w http.ResponseWriter, r *http.Request) {
 	os.MkdirAll(tmpDir, 0755)
 	defer os.RemoveAll(tmpDir)
 
-	exec.Command("docker", "cp", targetContainerID+":/app/data", tmpDir+"/data").Run()
-	exec.Command("docker", "cp", targetContainerID+":/app/uploads", tmpDir+"/uploads").Run()
-	exec.Command("docker", "cp", targetContainerID+":/app/plugins", tmpDir+"/plugins").Run()
-	exec.Command("docker", "cp", targetContainerID+":/app/themes", tmpDir+"/themes").Run()
-	exec.Command("docker", "cp", targetContainerID+":/app/static", tmpDir+"/static").Run()
+	out1, err1 := exec.Command("docker", "cp", targetContainerID+":/app/data", tmpDir+"/data").CombinedOutput()
+	out2, err2 := exec.Command("docker", "cp", targetContainerID+":/app/uploads", tmpDir+"/uploads").CombinedOutput()
+	out3, err3 := exec.Command("docker", "cp", targetContainerID+":/app/plugins", tmpDir+"/plugins").CombinedOutput()
+	out4, err4 := exec.Command("docker", "cp", targetContainerID+":/app/themes", tmpDir+"/themes").CombinedOutput()
+	out5, err5 := exec.Command("docker", "cp", targetContainerID+":/app/static", tmpDir+"/static").CombinedOutput()
 
 	zipPath := tmpDir + "/backup.zip"
 	outFile, err := os.Create(zipPath)
@@ -515,7 +515,13 @@ func (h *DomainsHandler) Backup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	debugInfo := fmt.Sprintf("Data: %v - %s\nUploads: %v - %s\nPlugins: %v - %s\nThemes: %v - %s\nStatic: %v - %s\nTargetContainer: %s", err1, string(out1), err2, string(out2), err3, string(out3), err4, string(out4), err5, string(out5), targetContainerID)
+
 	zw := zip.NewWriter(outFile)
+
+	fDebug, _ := zw.Create("debug.txt")
+	fDebug.Write([]byte(debugInfo))
+
 	filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || path == zipPath {
 			return nil
