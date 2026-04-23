@@ -312,16 +312,28 @@ func (h *DomainsHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// 5. Overwrite running application memory actively utilizing Host daemon streams safely 
+	var cpErrs []string
 	if dataPath != "" {
-		exec.Command("docker", "cp", dataPath+"/.", targetContainerID+":/app/data/").Run()
+		if out, err := exec.Command("docker", "cp", dataPath+"/.", targetContainerID+":/app/data/").CombinedOutput(); err != nil {
+			cpErrs = append(cpErrs, fmt.Sprintf("data obj err: %v - %s", err, string(out)))
+		}
 	}
 	if uploadsPath != "" {
-		exec.Command("docker", "cp", uploadsPath+"/.", targetContainerID+":/app/uploads/").Run()
+		if out, err := exec.Command("docker", "cp", uploadsPath+"/.", targetContainerID+":/app/uploads/").CombinedOutput(); err != nil {
+			cpErrs = append(cpErrs, fmt.Sprintf("uploads obj err: %v - %s", err, string(out)))
+		}
 	}
 	if dbPath != "" {
-		exec.Command("docker", "cp", dbPath, targetContainerID+":/app/data/sqlite.db").Run()
+		if out, err := exec.Command("docker", "cp", dbPath, targetContainerID+":/app/data/sqlite.db").CombinedOutput(); err != nil {
+			// fallback mapping
+			cpErrs = append(cpErrs, fmt.Sprintf("db obj err: %v - %s", err, string(out)))
+		}
 	}
 
+	if len(cpErrs) > 0 {
+		http.Error(w, `{"error":"structural deployment failure: `+strings.ReplaceAll(strings.Join(cpErrs, " | "), "\n", " ")+`"}`, http.StatusInternalServerError)
+		return
+	}
 	// 5. Hard reboot natively releasing internal SQLLite locks dynamically!
 	h.docker.RestartContainer(targetContainerID)
 
