@@ -3,7 +3,6 @@ package handlers
 import (
 	"archive/zip"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -206,7 +205,7 @@ func (h *DomainsHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	var targetContainerID string
 	for _, c := range containers {
 		for _, p := range c.Ports {
-			if p.PublicPort == targetPort {
+			if p.Public == targetPort {
 				targetContainerID = c.ID
 				break
 			}

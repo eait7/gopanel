@@ -1,13 +1,8 @@
 package handlers
 
 import (
-	"archive/zip"
 	"encoding/json"
-	"io"
 	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 
