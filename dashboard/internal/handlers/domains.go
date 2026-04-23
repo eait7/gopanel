@@ -324,8 +324,21 @@ func (h *DomainsHandler) Restore(w http.ResponseWriter, r *http.Request) {
 			cpErrs = append(cpErrs, fmt.Sprintf("uploads obj err: %v - %s", err, string(out)))
 		}
 	}
+	var hasSqlite bool
 	for _, dbFile := range dbFiles {
-		if out, err := exec.Command("docker", "cp", dbFile, targetContainerID+":/app/data/"+filepath.Base(dbFile)).CombinedOutput(); err != nil {
+		if filepath.Base(dbFile) == "sqlite.db" {
+			hasSqlite = true
+			break
+		}
+	}
+
+	for _, dbFile := range dbFiles {
+		targetName := filepath.Base(dbFile)
+		// Universal legacy architecture fallback adapter natively mapping early GoCMS to modern BinaryCMS flawlessly!
+		if targetName == "cms.db" && !hasSqlite {
+			targetName = "sqlite.db"
+		}
+		if out, err := exec.Command("docker", "cp", dbFile, targetContainerID+":/app/data/"+targetName).CombinedOutput(); err != nil {
 			cpErrs = append(cpErrs, fmt.Sprintf("db %s err: %v - %s", filepath.Base(dbFile), err, string(out)))
 		}
 	}
