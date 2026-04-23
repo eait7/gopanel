@@ -112,6 +112,8 @@ func main() {
 				containersHandler.Restart(w, r)
 			case strings.HasSuffix(path, "/logs") && r.Method == http.MethodGet:
 				containersHandler.Logs(w, r)
+			case strings.HasSuffix(path, "/restore") && r.Method == http.MethodPost:
+				containersHandler.Restore(w, r)
 			default:
 				http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
 			}

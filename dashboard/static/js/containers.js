@@ -14,7 +14,21 @@ const ContainersModule = {
         document.getElementById('logs-modal-close').addEventListener('click', () => {
             document.getElementById('logs-modal').style.display = 'none';
         });
+
+        // Setup global Zip Unpacker event listener natively
+        const uploadInput = document.getElementById('backup-upload-input');
+        if (uploadInput) {
+            uploadInput.addEventListener('change', async (e) => {
+                if (e.target.files.length > 0 && this.pendingRestoreId) {
+                    await this.uploadBackupZip(e.target.files[0], this.pendingRestoreId, this.pendingRestoreName);
+                    e.target.value = ''; // Reset natively
+                }
+            });
+        }
     },
+
+    pendingRestoreId: null,
+    pendingRestoreName: null,
 
     async loadContainers() {
         try {
@@ -96,6 +110,10 @@ const ContainersModule = {
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                             Logs
                         </button>
+                        <button class="btn btn-outline btn-sm" onclick="ContainersModule.triggerRestore('${c.id}', '${GoPanel.escapeHtml(c.name)}')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Restore Backup
+                        </button>
                     </div>
                 </div>
             `;
@@ -157,6 +175,38 @@ const ContainersModule = {
             document.getElementById('log-content').textContent = `Error: ${err.message}`;
         }
     },
+
+    triggerRestore(id, name) {
+        this.pendingRestoreId = id;
+        this.pendingRestoreName = name;
+        document.getElementById('backup-upload-input').click();
+    },
+
+    async uploadBackupZip(file, id, name) {
+        if (!await GoPanel.confirm('Restore Layout', `Are you absolutely certain you want to extract and overwrite the deployment "${name}" with this zip backup? Existing files will be merged securely.`)) return;
+
+        GoPanel.toast('Pushing graphical zip layout over Docker daemon... Please wait', 'info');
+
+        const formData = new FormData();
+        formData.append('backup', file);
+
+        try {
+            const resp = await fetch(`/api/containers/${id}/restore`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                GoPanel.toast(`Backup extracted & integrated cleanly into ${name}! Engine Restarted.`, 'success');
+                await this.loadContainers();
+            } else {
+                throw new Error(data.error || 'Daemon extraction failed structurally');
+            }
+        } catch (err) {
+            GoPanel.toast(`Failed deploying zip: ${err.message}`, 'error');
+        }
+    }
 };
 
 document.addEventListener('DOMContentLoaded', () => ContainersModule.init());
