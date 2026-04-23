@@ -52,10 +52,15 @@ const DomainsModule = {
                 </td>
                 <td>
                     <div class="table-actions">
-                        <button class="btn-icon" title="Edit" onclick="DomainsModule.editDomain(${d.id})">
+                        ${d.type === 'reverse_proxy' && d.upstream ? `
+                        <button class="btn-icon" style="color: var(--blue)" title="Restore Backup" onclick="DomainsModule.triggerRestore(${i}, '${GoPanel.escapeHtml(d.domains ? d.domains[0] : '')}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        </button>
+                        ` : ''}
+                        <button class="btn-icon" title="Edit" onclick="DomainsModule.editDomain(${i})">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
-                        <button class="btn-icon" title="Delete" onclick="DomainsModule.deleteDomain(${d.id}, '${GoPanel.escapeHtml(d.domains ? d.domains[0] : '')}')">
+                        <button class="btn-icon" title="Delete" onclick="DomainsModule.deleteDomain(${i}, '${GoPanel.escapeHtml(d.domains ? d.domains[0] : '')}')">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
                     </div>
@@ -180,7 +185,62 @@ const DomainsModule = {
             GoPanel.toast(err.message, 'error');
         }
     },
+
+    triggerRestore(id, name) {
+        this.pendingRestoreId = id;
+        this.pendingRestoreName = name;
+        document.getElementById('backup-upload-input').click();
+    },
+
+    async uploadBackupZip(file, id, name) {
+        if (!await GoPanel.confirm('Restore Website', `Are you absolutely certain you want to extract and overwrite the remote proxy application "${name}" with this zip backup? Existing deployment files will be replaced securely.`)) return;
+
+        GoPanel.toast('Pushing website layout over proxy routing protocol... Please wait', 'info');
+
+        const formData = new FormData();
+        formData.append('backup', file);
+
+        try {
+            const resp = await fetch(`/api/domains/${id}/restore`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                GoPanel.toast(`Website extracted & integrated cleanly into ${name}! Target proxy restarted completely.`, 'success');
+                await this.loadDomains();
+            } else {
+                throw new Error(data.error || 'Domains daemon extraction failed structurally');
+            }
+        } catch (err) {
+            GoPanel.toast(`Failed deploying zip over proxy mapping: ${err.message}`, 'error');
+        }
+    }
 };
 
 // Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => DomainsModule.init());
+document.addEventListener('DOMContentLoaded', () => {
+    DomainsModule.init();
+
+    const backupInput = document.getElementById('backup-upload-input');
+    if (backupInput) {
+        backupInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Enforce zip exclusively structurally
+            if (!file.name.toLowerCase().endsWith('.zip')) {
+                GoPanel.toast('Only .zip backups are currently authorized safely.', 'error');
+                backupInput.value = '';
+                return;
+            }
+
+            if (DomainsModule.pendingRestoreId !== undefined) {
+                DomainsModule.uploadBackupZip(file, DomainsModule.pendingRestoreId, DomainsModule.pendingRestoreName);
+                DomainsModule.pendingRestoreId = undefined;
+            }
+            backupInput.value = ''; 
+        });
+    }
+});

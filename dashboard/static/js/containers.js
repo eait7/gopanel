@@ -176,39 +176,8 @@ const ContainersModule = {
         } catch (err) {
             document.getElementById('log-content').textContent = `Error: ${err.message}`;
         }
-    },
-
-    triggerRestore(id, name) {
-        this.pendingRestoreId = id;
-        this.pendingRestoreName = name;
-        document.getElementById('backup-upload-input').click();
-    },
-
-    async uploadBackupZip(file, id, name) {
-        if (!await GoPanel.confirm('Restore Layout', `Are you absolutely certain you want to extract and overwrite the deployment "${name}" with this zip backup? Existing files will be merged securely.`)) return;
-
-        GoPanel.toast('Pushing graphical zip layout over Docker daemon... Please wait', 'info');
-
-        const formData = new FormData();
-        formData.append('backup', file);
-
-        try {
-            const resp = await fetch(`/api/containers/${id}/restore`, {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await resp.json();
-            if (resp.ok && data.success) {
-                GoPanel.toast(`Backup extracted & integrated cleanly into ${name}! Engine Restarted.`, 'success');
-                await this.loadContainers();
-            } else {
-                throw new Error(data.error || 'Daemon extraction failed structurally');
-            }
-        } catch (err) {
-            GoPanel.toast(`Failed deploying zip: ${err.message}`, 'error');
-        }
     }
 };
 
+// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => ContainersModule.init());

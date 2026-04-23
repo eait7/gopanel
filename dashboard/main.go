@@ -29,7 +29,7 @@ func main() {
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(cfg, auth)
-	domainsHandler := handlers.NewDomainsHandler(caddySvc)
+	domainsHandler := handlers.NewDomainsHandler(caddySvc, dockerSvc)
 	systemHandler := handlers.NewSystemHandler(sysInfoSvc, cfg)
 	dashboardHandler := handlers.NewDashboardHandler("/static")
 	appsHandler := handlers.NewAppsHandler()
@@ -84,10 +84,13 @@ func main() {
 
 	protectedMux.HandleFunc("/api/domains/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodDelete:
+		path := r.URL.Path
+		switch {
+		case strings.HasSuffix(path, "/restore") && r.Method == http.MethodPost:
+			domainsHandler.Restore(w, r)
+		case r.Method == http.MethodDelete:
 			domainsHandler.Delete(w, r)
-		case http.MethodPut:
+		case r.Method == http.MethodPut:
 			domainsHandler.Update(w, r)
 		default:
 			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
@@ -112,10 +115,8 @@ func main() {
 				containersHandler.Restart(w, r)
 			case strings.HasSuffix(path, "/logs") && r.Method == http.MethodGet:
 				containersHandler.Logs(w, r)
-			case strings.HasSuffix(path, "/restore") && r.Method == http.MethodPost:
-				containersHandler.Restore(w, r)
 			default:
-				http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
+				http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 			}
 		})
 	}
